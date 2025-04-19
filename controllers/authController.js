@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const Token = require('../models/Token');
+const nodemailer = require('nodemailer');
 
 // @desc    Register new user
 // @route   POST /api/v1/auth/register
@@ -7,14 +9,53 @@ exports.register = async (req, res) => {
   try {
     const { name, telephone, email, password, role } = req.body;
 
+    if (!name || !telephone || !email || !password || !role) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
     // Create new user
     const user = await User.create({ name, telephone, email, password, role });
 
-    // Send token in response
-    sendTokenResponse(user, 201, res);
+    // Create a token for the user
+    const TokenModel = require('../models/Token');
+    const newToken = new TokenModel({ _userId: user._id, token: user.getSignedJwtToken() });
+    await newToken.save();
+
+    // Setup the email transporter
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    // Email options
+    const mailOptions = {
+      from: 'no-reply@job_interview.com',
+      to: user.email,
+      subject: 'Verify your email',
+      text: `Please verify your email by clicking the link: \nhttp://${req.headers.host}/confirmation/${user.email}/${newToken.token}\n\nThank You!\n`
+    };
+
+    // Send email and handle the response
+    await transporter.sendMail(mailOptions);
+
+    // Send token response to the client after email is sent
+    sendTokenResponse(user, 201, res); // Make sure sendTokenResponse sends the response properly
+
   } catch (err) {
-    console.error(err.stack);
-    res.status(400).json({ success: false, message: 'Registration failed' });
+    console.error('REGISTER ERROR:', err);
+
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+
+    if (err.code === 11000) {
+      return res.status(400).json({ success: false, message: 'Email already exists' });
+    }
+
+    return res.status(500).json({ success: false, message: 'Something went wrong' });
   }
 };
 
@@ -41,7 +82,10 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
+    // Check if user is verified
+    if (!user.isVerified) {
+      return res.status(401).json({ success: false, message: 'User not verified' });
+    }
     // Send token
     sendTokenResponse(user, 200, res);
   } catch (err) {
