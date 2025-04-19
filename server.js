@@ -21,7 +21,6 @@ connectDB();
 const auth = require('./routes/authRoutes');
 const bookings = require('./routes/bookingRoutes');
 const companies = require('./routes/companyRoutes');
-const confirmEmail = require('./routes/verifyRoutes');
 
 // Initialize express app
 const app = express();
@@ -48,7 +47,6 @@ app.use(limiter);
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/bookings', bookings);
 app.use('/api/v1/companies', companies);
-app.get('/confirmation/:email/:token',confirmEmail)
 
 // Set PORT from .env or default to 6000
 const PORT = process.env.PORT || 6000;
