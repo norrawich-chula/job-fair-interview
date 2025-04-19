@@ -78,13 +78,13 @@ exports.createBooking = async (req, res) => {
 
     // Validate date is within range
     const bookingDate = new Date(date);
-    const startDate = new Date('2022-05-10');
-    const endDate = new Date('2022-05-13');
+    const startDate = new Date('2025-04-10');
+    const endDate = new Date('2025-05-13');
 
     if (bookingDate < startDate || bookingDate > endDate) {
       return res.status(400).json({
         success: false,
-        message: 'Booking date must be between May 10 and May 13, 2022'
+        message: 'Booking date must be between Apr 10 and May 13, 2025'
       });
     }
 

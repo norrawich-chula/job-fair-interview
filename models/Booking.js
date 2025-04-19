@@ -6,8 +6,8 @@ const BookingSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator: (value) => {
-        const min = new Date('2022-05-10');
-        const max = new Date('2022-05-13');
+        const min = new Date('2025-04-10');
+        const max = new Date('2025-05-13');
         return value >= min && value <= max;
       },
       message: 'Booking date must be between May 10 and May 13, 2022'

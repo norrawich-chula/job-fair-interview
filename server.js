@@ -63,3 +63,5 @@ process.on('unhandledRejection', (err, promise) => {
   console.log(`Unhandled Error: ${err.message}`);
   server.close(() => process.exit(1));
 });
+
+require('./scheduler/emailNotifier');
