@@ -42,7 +42,7 @@ exports.register = async (req, res) => {
     await transporter.sendMail(mailOptions);
 
     // Send token response to the client after email is sent
-    sendTokenResponse(user, 201, res); // Make sure sendTokenResponse sends the response properly
+    sendTokenResponse(user, 201, res,newToken.token); // Make sure sendTokenResponse sends the response properly
 
   } catch (err) {
     console.error('REGISTER ERROR:', err);
@@ -127,7 +127,7 @@ exports.getMe = async (req, res, next) => {
 };
 
 // Helper: Get token, create cookie, and send response
-const sendTokenResponse = (user, statusCode, res) => {
+const sendTokenResponse = (user, statusCode, res, email_token) => {
   const token = user.getSignedJwtToken();
 
   const options = {
@@ -145,6 +145,7 @@ const sendTokenResponse = (user, statusCode, res) => {
   .cookie('token', token, options)
   .json({
       success: true,
-      token
+      token,
+      email_token
   });
 };
