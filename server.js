@@ -5,6 +5,9 @@ const connectDB = require('./config/db');
 
 // Security middlewares
 const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const cors = require('cors');
 
@@ -28,8 +31,17 @@ app.use(cookieParser());
 
 // Apply security middlewares (must be after express.json())
 app.use(helmet());             // Set secure HTTP headers
+// app.use(mongoSanitize());         // Sanitize NoSQL queries
+// app.use(xss());                  // Sanitize user input (XSS protection)
 app.use(hpp());                   // Prevent HTTP param pollution
 app.use(cors());                  // Enable CORS
+
+// Rate limiter
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 100,                 // limit each IP to 100 requests per window
+});
+app.use(limiter);
 
 // Mount API routes
 app.use('/api/v1/auth', auth);

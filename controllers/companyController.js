@@ -1,39 +1,39 @@
 const Company = require('../models/Company');
 const Booking = require('../models/Booking');
 
-// @desc    Get all companies with optional filtering, sorting, and pagination
+// @desc    Get all companies
 // @route   GET /api/v1/companies
 // @access  Public
 exports.getCompanies = async (req, res) => {
   try {
     let query;
 
-    // Copy query params from request (to avoid mutating original object)
+    // Copy request query for manipulation
     const reqQuery = { ...req.query };
 
-    // Fields to remove from the base query (they're for formatting, not filtering)
+    // Fields to exclude from base filtering
     const removeFields = ['select', 'sort', 'page', 'limit'];
     removeFields.forEach(param => delete reqQuery[param]);
 
-    // Convert query operators like gt, lt into MongoDB format ($gt, $lt)
+    // Stringify and format MongoDB operators
     let queryStr = JSON.stringify(reqQuery);
     queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
 
-    // Build MongoDB query with population of related bookings
+    // Base query
     query = Company.find(JSON.parse(queryStr)).populate('bookings');
 
-    // ===== Field selection =====
+    // ===== Select fields =====
     if (req.query.select) {
       const fields = req.query.select.split(',').join(' ');
-      query = query.select(fields); // Select only specific fields
+      query = query.select(fields);
     }
 
     // ===== Sorting =====
     if (req.query.sort) {
       const sortBy = req.query.sort.split(',').join(' ');
-      query = query.sort(sortBy); // Custom sort
+      query = query.sort(sortBy);
     } else {
-      query = query.sort('-createdAt'); // Default sort: latest first
+      query = query.sort('-createdAt');
     }
 
     // ===== Pagination =====
@@ -45,15 +45,14 @@ exports.getCompanies = async (req, res) => {
 
     query = query.skip(startIndex).limit(limit);
 
-    // Execute query
+    // Execute final query
     const companies = await query;
 
-    // Build pagination result
+    // Pagination info
     const pagination = {};
     if (endIndex < total) pagination.next = { page: page + 1, limit };
     if (startIndex > 0) pagination.prev = { page: page - 1, limit };
 
-    // Respond with data
     res.status(200).json({
       success: true,
       count: companies.length,
@@ -66,31 +65,28 @@ exports.getCompanies = async (req, res) => {
   }
 };
 
-// @desc    Get single company by ID
+// @desc    Get single company
 // @route   GET /api/v1/companies/:id
 // @access  Public
 exports.getCompany = async (req, res) => {
   try {
-    // Find company by ID and include its bookings
     const company = await Company.findById(req.params.id).populate('bookings');
 
     if (!company) {
       return res.status(404).json({ success: false, message: 'Company not found' });
     }
 
-    // Respond with company info
     res.status(200).json({ success: true, data: company });
   } catch (err) {
     res.status(400).json({ success: false, message: 'Invalid company ID' });
   }
 };
 
-// @desc    Create a new company
+// @desc    Create new company
 // @route   POST /api/v1/companies
 // @access  Private (admin only)
 exports.createCompany = async (req, res) => {
   try {
-    // Create and save new company
     const company = await Company.create(req.body);
     res.status(201).json({ success: true, data: company });
   } catch (err) {
@@ -99,15 +95,14 @@ exports.createCompany = async (req, res) => {
   }
 };
 
-// @desc    Update company details
+// @desc    Update company
 // @route   PUT /api/v1/companies/:id
 // @access  Private (admin only)
 exports.updateCompany = async (req, res) => {
   try {
-    // Find and update the company with new data
     const company = await Company.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,         // Return the updated document
-      runValidators: true // Validate schema rules
+      new: true,
+      runValidators: true
     });
 
     if (!company) {
@@ -121,21 +116,20 @@ exports.updateCompany = async (req, res) => {
   }
 };
 
-// @desc    Delete a company and its associated bookings
+// @desc    Delete company
 // @route   DELETE /api/v1/companies/:id
 // @access  Private (admin only)
 exports.deleteCompany = async (req, res) => {
   try {
-    // Find company by ID
     const company = await Company.findById(req.params.id);
     if (!company) {
       return res.status(404).json({ success: false, message: 'Company not found' });
     }
 
-    // Delete all bookings associated with the company
+    // Delete related bookings
     await Booking.deleteMany({ company: req.params.id });
 
-    // Delete the company itself
+    // Delete company
     await company.deleteOne();
 
     res.status(200).json({ success: true, data: {} });

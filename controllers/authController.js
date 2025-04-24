@@ -1,17 +1,16 @@
 const User = require('../models/User');
-const Booking = require('../models/Booking');
 
-// @desc    Register a new user account
+// @desc    Register new user
 // @route   POST /api/v1/auth/register
 // @access  Public
 exports.register = async (req, res) => {
   try {
     const { name, telephone, email, password, role } = req.body;
 
-    // Create and save the new user in the database
+    // Create new user
     const user = await User.create({ name, telephone, email, password, role });
 
-    // Return a JWT token in the response
+    // Send token in response
     sendTokenResponse(user, 201, res);
   } catch (err) {
     console.error(err.stack);
@@ -19,31 +18,31 @@ exports.register = async (req, res) => {
   }
 };
 
-// @desc    Login user and return JWT token
+// @desc    Login user
 // @route   POST /api/v1/auth/login
 // @access  Public
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Ensure email and password are provided
+    // Validate input
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Please provide email and password' });
     }
 
-    // Look up the user by email (include password field)
+    // Check user
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Check if the entered password matches the stored hash
+    // Check password
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Login successful – return token
+    // Send token
     sendTokenResponse(user, 200, res);
   } catch (err) {
     console.error(err.stack);
@@ -51,11 +50,10 @@ exports.login = async (req, res) => {
   }
 };
 
-// @desc    Logout user by clearing the cookie token
+// @desc    Logout user (client should clear cookie/token)
 // @route   POST /api/v1/auth/logout
 // @access  Public
 exports.logout = (req, res) => {
-  // Set token cookie to expire immediately
   res.cookie('token', 'none', {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true
@@ -64,77 +62,45 @@ exports.logout = (req, res) => {
   res.status(200).json({ 
     success: true,
     data: {},
-    message: 'Logged out successfully'
-  });
+    message: 'Logged out successfully' });
 };
 
-// @desc    Get the currently logged-in user's profile
+// @desc    Get current logged-in user
 // @route   GET /api/v1/auth/me
 // @access  Private
 exports.getMe = async (req, res, next) => {
-  try {
-    // Find user by ID (from decoded JWT)
-    const user = await User.findById(req.user.id);
+    try {
+        const user = await User.findById(req.user.id);
 
-    res.status(200).json({
-      success: true,
-      data: user
-    });
-  } catch (err) {
-    console.error(err.stack);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
-};
-
-// @desc    Admin deletes a user and their related bookings
-// @route   DELETE /api/v1/auth/users/:id
-// @access  Private/Admin
-exports.deleteUserByAdmin = async (req, res) => {
-  try {
-    // Look up user by ID
-    const user = await User.findById(req.params.id);
-
-    // If not found, return 404
-    if (!user) {  
-      return res.status(404).json({ success: false, message: 'User not found' });
+        res.status(200).json({
+            success: true,
+            data: user
+        });
+    } catch (err) {
+        console.error(err.stack);
+        res.status(500).json({ success: false, message: 'Server Error' });
     }
-
-    // Delete all bookings made by the user
-    await Booking.deleteMany({ user: user._id });
-
-    // Delete the user account
-    await user.deleteOne();
-
-    res.status(200).json({ success: true, message: 'User and related bookings deleted successfully' });
-  } catch (err) {
-    console.error(err.stack);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
 };
 
-// @desc    Helper to send JWT token as cookie and JSON response
+// Helper: Get token, create cookie, and send response
 const sendTokenResponse = (user, statusCode, res) => {
-  // Generate signed JWT token from user model method
   const token = user.getSignedJwtToken();
 
-  // Set cookie options
   const options = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
     ),
-    httpOnly: true // Helps prevent XSS
+    httpOnly: true
   };
 
-  // In production, require HTTPS
   if (process.env.NODE_ENV === 'production') {
     options.secure = true;
   }
 
-  // Send token in cookie and response body
   res.status(statusCode)
-    .cookie('token', token, options)
-    .json({
+  .cookie('token', token, options)
+  .json({
       success: true,
       token
-    });
+  });
 };
