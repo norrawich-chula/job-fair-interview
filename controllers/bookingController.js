@@ -52,6 +52,7 @@ exports.getBooking = async (req, res) => {
   }
 };
 
+
 // @desc    Create a booking (max 3 per user)
 // @route   POST /api/v1/bookings
 // @access  Private
@@ -59,7 +60,7 @@ exports.createBooking = async (req, res) => {
   try {
     const { company, date } = req.body;
 
-    // Only allow role === 'user'
+    // Only users can book
     if (req.user.role !== 'user') {
       return res.status(403).json({
         success: false,
@@ -67,7 +68,15 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Validate company existence
+    // Required fields
+    if (!company || !date) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company and date are required to create a booking'
+      });
+    }
+
+    // Company must exist
     const foundCompany = await Company.findById(company);
     if (!foundCompany) {
       return res.status(404).json({
@@ -76,8 +85,15 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Validate date is within range
+    // Validate date
     const bookingDate = new Date(date);
+    if (isNaN(bookingDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking date format'
+      });
+    }
+
     const startDate = new Date('2022-05-10');
     const endDate = new Date('2022-05-13');
 
@@ -88,8 +104,12 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Check for duplicate booking (same user, company, date)
-    const duplicate = await Booking.findOne({ user: req.user.id, company, date });
+    // Duplicate check
+    const duplicate = await Booking.findOne({
+      user: req.user.id,
+      company,
+      date: bookingDate
+    });
     if (duplicate) {
       return res.status(400).json({
         success: false,
@@ -97,7 +117,7 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Enforce booking limit: max 3 per user
+    // Booking limit
     const existingBookings = await Booking.find({ user: req.user.id });
     if (existingBookings.length >= 3) {
       return res.status(400).json({
@@ -106,16 +126,28 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Create booking
+    // ✅ Create booking
     const booking = await Booking.create({
       user: req.user.id,
       company,
-      date
+      date: bookingDate
     });
 
     res.status(201).json({ success: true, data: booking });
+
   } catch (err) {
-    console.error(err);
+    console.error('❌ Booking creation error:', err);
+
+    // Validation errors from Mongoose
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking validation failed',
+        error: err.message
+      });
+    }
+
+    // Unexpected/internal errors
     res.status(500).json({
       success: false,
       message: 'Cannot create booking',
@@ -124,59 +156,7 @@ exports.createBooking = async (req, res) => {
   }
 };
 
-// // @desc    Create a booking (max 3 per user)
-// // @route   POST /api/v1/bookings
-// // @access  Private
-// exports.createBooking = async (req, res) => {
-//     try {
-//       const { company, date } = req.body;
-  
-//       // Validate company
-//       const foundCompany = await Company.findById(company);
-//       if (!foundCompany) {
-//         return res.status(404).json({ success: false, message: `No company found with id ${company}` });
-//       }
-  
-//       // Validate date range
-//       const bookingDate = new Date(date);
-//       const startDate = new Date('2022-05-10');
-//       const endDate = new Date('2022-05-13');
-  
-//       if (bookingDate < startDate || bookingDate > endDate) {
-//         return res.status(400).json({
-//           success: false,
-//           message: 'Booking date must be between May 10 and May 13, 2022'
-//         });
-//       }
-  
-//       // Check for duplicate (same user, same company, same date)
-//       const duplicate = await Booking.findOne({ user: req.user.id, company, date });
-//       if (duplicate) {
-//         return res.status(400).json({
-//           success: false,
-//           message: 'You already booked this company on this date'
-//         });
-//       }
-  
-//       // Enforce 3 booking limit (user only)
-//       const existing = await Booking.find({ user: req.user.id });
-//       if (req.user.role !== 'admin' && existing.length >= 3) {
-//         return res.status(400).json({ success: false, message: 'Only 3 bookings allowed per user' });
-//       }
-  
-//       const booking = await Booking.create({
-//         user: req.user.id,
-//         company,
-//         date
-//       });
-  
-//       res.status(201).json({ success: true, data: booking });
-//     } catch (err) {
-//       console.error(err);
-//       res.status(500).json({ success: false, message: "Cannot create booking" });
-//     }
-//   };
-  
+
 // @desc    Update a booking
 // @route   PUT /api/v1/bookings/:id
 // @access  Private (user or admin)

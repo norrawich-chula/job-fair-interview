@@ -4,12 +4,11 @@ const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 
 // Security middlewares
-const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
-const xss = require('xss-clean');
-const rateLimit = require('express-rate-limit');
-const hpp = require('hpp');
 const cors = require('cors');
+const helmet = require('helmet');
+const sanitize = require('mongo-sanitize');
+const { xss } = require('express-xss-sanitizer');
+const hpp = require('hpp');
 
 // Load environment variables
 dotenv.config({ path: './config/config.env' });
@@ -28,20 +27,17 @@ const app = express();
 // Body parser and cookie middleware
 app.use(express.json());
 app.use(cookieParser());
-
+app.use(cors());                 
 // Apply security middlewares (must be after express.json())
 app.use(helmet());             // Set secure HTTP headers
-// app.use(mongoSanitize());         // Sanitize NoSQL queries
-// app.use(xss());                  // Sanitize user input (XSS protection)
+app.use(xss());
 app.use(hpp());                   // Prevent HTTP param pollution
-app.use(cors());                  // Enable CORS
-
-// Rate limiter
-const limiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 100,                 // limit each IP to 100 requests per window
-});
-app.use(limiter);
+app.use((req, res, next) => {
+  req.body = sanitize(req.body);
+  req.query = sanitize(req.query);
+  req.params = sanitize(req.params);
+  next();
+});            
 
 // Mount API routes
 app.use('/api/v1/auth', auth);

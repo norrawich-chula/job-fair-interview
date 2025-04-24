@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Booking = require('../models/Booking');
 
 // @desc    Register new user
 // @route   POST /api/v1/auth/register
@@ -81,6 +82,32 @@ exports.getMe = async (req, res, next) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
+// @desc    Delete a user account by admin (and their bookings)
+// @route   DELETE /api/v1/auth/users/:id
+// @access  Private/Admin
+exports.deleteUserByAdmin = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {  
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Delete all bookings belonging to the user
+    await Booking.deleteMany({ user: user._id });
+
+    // Delete the user account
+    await user.deleteOne();
+
+    res.status(200).json({ success: true, message: 'User and related bookings deleted successfully' });
+  } catch (err) {
+    console.error(err.stack);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+
 
 // Helper: Get token, create cookie, and send response
 const sendTokenResponse = (user, statusCode, res) => {
