@@ -78,8 +78,8 @@ exports.createBooking = async (req, res) => {
 
     // Validate date is within range
     const bookingDate = new Date(date);
-    const startDate = new Date('2022-05-10');
-    const endDate = new Date('2022-05-13');
+    const startDate = new Date('2025-04-01');
+    const endDate = new Date('2025-05-13');
 
     if (bookingDate < startDate || bookingDate > endDate) {
       return res.status(400).json({
