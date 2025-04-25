@@ -15,7 +15,29 @@ exports.register = async (req, res) => {
     sendTokenResponse(user, 201, res);
   } catch (err) {
     console.error(err.stack);
-    res.status(400).json({ success: false, message: 'Registration failed' });
+
+    // Handle Mongoose validation errors
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(', ')
+      });
+    }
+
+    // Handle duplicate key error (e.g., email already exists)
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'User already exists with this email'
+      });
+    }
+
+    // Fallback for other errors
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed due to server error'
+    });
   }
 };
 
@@ -106,8 +128,6 @@ exports.deleteUserByAdmin = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
-
-
 
 // Helper: Get token, create cookie, and send response
 const sendTokenResponse = (user, statusCode, res) => {
